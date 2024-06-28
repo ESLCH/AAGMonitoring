@@ -1,0 +1,19 @@
+1. Performance issue 1 (poor replication performance)
+   
+   --> Decrease network bandwith WIN20122SQL14
+   Decrease network bandwith for -VMName WIN20122SQL14  
+   PowerShell: Get-VMNetworkAdapter -VMName WIN20122SQL14  | Where-Object { $_.SwitchName -eq "Private 192.168.5.0/24"} | Set-VMNetworkAdapter -MaximumBandwidth 150000
+
+   --> Prepare perform counters on WIN20121SQL14
+   SQLServer:Database replica(killerDB)\Mirrored Write Transactions/sec
+   SQLServer:Database replica()\Transaction Delay
+
+   --> Run ostress on WIN20124SQL14
+   CMD: "C:\Program Files\Microsoft Corporation\RMLUtils\ostress.exe" -SWIN20121SQL14\SQL14 -dkillerdb -Q"INSERT dbo.killer_t DEFAULT VALUES;" -n32 -r1000 -q
+
+   --> Show performance metrics
+   SQL: 2 - AG - 2 - 1 - DMV AG.sql
+        2 - AG - 2 - 2 - DMV wait stats.sql
+
+   --> Revert back network bandwidth WIN20122SQL14 
+   Get-VMNetworkAdapter -VMName WIN20122SQL14  | Where-Object { $_.SwitchName -eq "Private 192.168.5.0/24"} | Set-VMNetworkAdapter -MaximumBandwidth 0  

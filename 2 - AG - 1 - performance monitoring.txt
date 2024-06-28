@@ -1,0 +1,67 @@
+1. Performance issue 1 (poor replication performance)
+   
+   --> Install killerdb database
+   SQL: 2 - AG - 1 - 1 - install killerdb.sql
+
+   --> Decrease network bandwith WIN20122SQL14
+   Decrease network bandwith for -VMName WIN20122SQL14  
+   PowerShell: Get-VMNetworkAdapter -VMName WIN20122SQL14  | Where-Object { $_.SwitchName -eq "Private 192.168.5.0/24"} | Set-VMNetworkAdapter -MaximumBandwidth 150000
+
+   --> Prepare perform counters on WIN20121SQL14
+   SQLServer:Database replica(killerDB)\Mirrored Write Transactions/sec
+   SQLServer:Database replica()\Transaction Delay
+
+   --> Run ostress on WIN20124SQL14
+   CMD: "C:\Program Files\Microsoft Corporation\RMLUtils\ostress.exe" -SWIN20121SQL14\SQL14 -dkillerdb -Q"INSERT dbo.killer_t DEFAULT VALUES;" -n32 -r1000 -q
+
+   --> Show performance metrics
+   SQL: 2 - AG - 99 - 1 - DMV AG.sql
+        2 - AG - 99 - 2 - DMV wait stats.sql
+
+   --> Revert back network bandwidth WIN20122SQL14 
+   Get-VMNetworkAdapter -VMName WIN20122SQL14  | Where-Object { $_.SwitchName -eq "Private 192.168.5.0/24"} | Set-VMNetworkAdapter -MaximumBandwidth 0  
+
+
+
+2. Performance issue 2
+
+   --> Add a bunch of additional data into dbo.killer_t table
+   CMD: "C:\Program Files\Microsoft Corporation\RMLUtils\ostress.exe" -SWIN20121SQL14\SQL14 -dkillerdb -Q"INSERT dbo.killer_t DEFAULT VALUES;" -n32 -r10000 -q
+
+   --> Enable RO replica (WIN20122SQL14\SQL14)
+   ALTER AVAILABILITY GROUP [ Killer-Grp]
+   MODIFY REPLICA ON N'WIN20122SQL14\SQL14' 
+   WITH (SECONDARY_ROLE(ALLOW_CONNECTIONS = ALL))
+   GO
+
+   --> Execute a DDL activity on the primary
+   USE killerdb;
+   GO
+
+   BEGIN TRAN;
+   ALTER TABLE dbo.killer_t ADD col2 INT NULL;
+   COMMIT TRAN;
+
+
+   --> Run the reporting query on the RO replica (WIN20122SQL14\SQL14)
+   USE killerdb;
+   GO
+
+   SELECT *
+   FROM dbo.killer_t
+   CROSS APPLY master..spt_values as c1
+   CROSS APPLY master..spt_values as c2
+   CROSS APPLY master..spt_values as c3
+
+   --> Insert new data from the primary
+   CMD: "C:\Program Files\Microsoft Corporation\RMLUtils\ostress.exe" -SWIN20121SQL14\SQL14 -dkillerdb -Q"INSERT dbo.killer_t DEFAULT VALUES;" -n32 -r1000 -q
+
+   --> Take a look at the DMVs and redo queue  (hardened lsn > redone lsn --> redo is blocked by DDL activity)
+   SQL: 2 - AG - 99 - 1 - DMV AG.sql
+        2 - AG - 99 - 2 - DMV wait stats.sql
+
+   --> Show XE session 
+   SQL: 2 - AG - 99 - 4 redo_wait_info_0_1.sql
+   XE : 2 - AG - 99 - 4 redo_wait_info_0_1.xel
+
+

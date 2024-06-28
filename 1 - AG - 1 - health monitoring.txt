@@ -1,0 +1,12 @@
+1. Show dashbaord
+
+2. Show availability groups cmdlet
+   PowerShell: 1 - AG - 2 - health monitoring powershell cmdlets.ps1
+
+3. Show availability groups DMVs
+   SQL: 1 - AG - 3 - DMVs.sql
+
+4. Show customer use case
+   SQL: 1 - AG - 4 - always_failover_health_monitoring.sql
+
+
